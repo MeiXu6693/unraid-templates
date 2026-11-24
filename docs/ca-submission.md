@@ -74,7 +74,7 @@ The "prove repository ownership" step requires you to place a `.unraid/community
 |---|---|---|
 | `<Repository>` | `ghcr.io/<owner>/dsh:latest` | confirm the owner matches the repository |
 | `<Registry>` | the corresponding GitHub package page | confirm it is reachable |
-| `<Icon>` | points via `gh-proxy.com` to `templates/img/dsh.png` in the repository | see "Icon hosting" below |
+| `<Icon>` | `https://raw.githubusercontent.com/…/templates/img/dsh.png` (no proxy) | see "Icon hosting" below |
 | `<Category>` | `Tools:` | adjust per the CA category tree |
 | `<Overview>` / `<Description>` | bilingual (Chinese and English) | ⚠️ gets pinned at the moment the user installs, so do not write information that will go stale (see ca-pitfalls.md B2) |
 | `<ExtraParams>` | the two `--security-opt` | **do not delete**; delete them and the bash tool is dead |
@@ -82,7 +82,7 @@ The "prove repository ownership" step requires you to place a `.unraid/community
 | Volumes | `/data`, `/workspace` → `appdata/dsh/...` | first start hands them to `PUID:PGID` (`99:100` on Unraid, `1000:1000` for compose) |
 | `<Support>` | [forum support thread](https://forums.unraid.net/topic/200908-support-dsh-deepseek-harness-ai-coding-agent-in-your-browser/) | ✅ replaced (published 2026-10-15 under Community → Docker Containers) |
 | `<TemplateURL>` | the raw template URL on the repository's `main` | officially marked recommended (used for identity and review) |
-| `<ReadMe>` | points via the proxy to the repository README | the starter carries this field; the Unraid detail page displays it |
+| `<ReadMe>` | points straight at the repository README on `raw.githubusercontent.com` | the starter carries this field; the Unraid detail page displays it |
 | `<Requires>` | keep the template's Extra Parameters | official field: system requirement text, exactly the place to remind about the sandbox prerequisite |
 | `<Changes>` | points to the Releases page | official field: changelog text |
 | root `icon.svg` | vector version of the application icon | official layout requirement; `<Icon>` in `ca_profile.xml` points to it |
@@ -98,9 +98,34 @@ Since the 2026-10-16 split, that pipeline lives in [MeiXu6693/dsh-docker](https:
 
 Nothing in this repository has to change for an upstream release, which is the point of the split.
 
-## Icon hosting: why not to use a raw link
+## Icon hosting: first-party URLs only
 
-Measured (China mainland home broadband egress):
+The icon and the README are loaded by the browser of **every** user who opens the entry, so
+neither may route through a third party. While the entry is live, CA parses
+`templates/dsh.xml` on each feed rebuild and copies these URLs into the catalogue, which is
+why a bad one is visible to everybody within hours.
+
+**History, 2026-10-15 → 2026-11-24.** Both fields went through
+`https://gh-proxy.com/https://raw.githubusercontent.com/...`. The motive was real: measured
+from mainland China home broadband, raw and jsDelivr time out while the proxy answered in
+about 0.2 s. The trade was still wrong, and a user reported it on 2026-11-24 — *"the moment
+i opened the community apps page in unraid my browser went off because of the icon url"*:
+
+- the domain is classified malicious wherever it is currently scanned: Cloudflare Radar's
+  verdict is "malicious" with 10 security violations, Gridinsoft scores it 28/100 with
+  several blacklist detections, and Avast blocks it (the Zotero forum has the same warning
+  from a plugin that polled it);
+- a proxy sits in front of the bytes, so it decides what every user's browser receives.
+
+**Now.** `<Icon>`, `<ReadMe>` and `ca_profile.xml`'s `<Icon>` point straight at
+`raw.githubusercontent.com` — the same host CA already fetches `<TemplateURL>` from, so an
+installation adds no host dependency and the bytes come from this repository. Where that
+host is blocked (mainland China) the icon and the README link break: cosmetic only,
+installation and updates are unaffected. `scripts/check-template.mjs` fails the build when a
+user-facing URL uses a known GitHub proxy, and requires the icon to live on
+`raw.githubusercontent.com`.
+
+### What was measured when the proxy was chosen (2026-10-15, China mainland home broadband)
 
 | URL form | Result |
 |---|---|
@@ -108,7 +133,9 @@ Measured (China mainland home broadband egress):
 | `cdn.jsdelivr.net/gh/...` | **timeout** |
 | `github.com/<owner>/<repo>/raw/...` | 302 redirect to raw (the browser then times out the same way) |
 | `ghproxy.net/https://raw.githubusercontent.com/...` | 200, about 1.0–1.9 s |
-| **`gh-proxy.com/https://raw.githubusercontent.com/...`** | **200, about 0.2 s** |
+| `gh-proxy.com/https://raw.githubusercontent.com/...` | **200, about 0.2 s** — this is the one that had to go |
 | own domain | 200 |
 
-The bytes returned by the proxy were compared by sha256 against the authoritative copy fetched directly through the API (they match); it is not just "it opens". If the proxy stops working one day: just switch `<Icon>` to hosting on your own domain or another proxy; **a broken icon image does not affect installation**.
+Reachability is not the criterion any more: a broken icon costs nothing, a flagged one
+costs users' trust and gets the page blocked. Verify content rather than reachability — see
+the self-check commands in [ca-pitfalls.md](ca-pitfalls.md).

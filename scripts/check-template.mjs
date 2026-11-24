@@ -181,6 +181,7 @@ for (const tagName of REQUIRED_TAGS) {
 
 // 3c — ca_profile.xml is a hard submission gate: exact name, repository root, non-empty <Profile>
 const profilePath = resolve(dirname(file), '..', 'ca_profile.xml')
+let profileIcon = ''
 if (existsSync(profilePath)) {
   const profile = stripComments(readFileSync(profilePath, 'utf8'))
   assertWellFormed(readFileSync(profilePath, 'utf8'), 'ca_profile.xml')
@@ -190,15 +191,54 @@ if (existsSync(profilePath)) {
   for (const tagName of ['Icon', 'WebPage']) {
     if (tag(tagName) === '' && !profile.includes(`<${tagName}>`)) warnings.push(`ca_profile.xml does not set <${tagName}> (recommended)`)
   }
+  profileIcon = ((/<Icon>([\s\S]*?)<\/Icon>/.exec(profile) ?? [])[1] ?? '').trim()
 } else {
   notes.push('ca_profile.xml not found beside the repository root (expected when checking a rendered copy outside the repo)')
 }
 
 // 4 — links
-for (const field of ['Registry', 'Project', 'Icon']) {
+const linkTags = ['Registry', 'Project', 'Icon', 'ReadMe', 'TemplateURL', 'WebPage']
+for (const field of linkTags) {
   const value = tag(field)
-  if (!value.startsWith('https://')) errors.push(`<${field}> must be an https URL, got "${value}"`)
+  if (value !== '' && !value.startsWith('https://')) errors.push(`<${field}> must be an https URL, got "${value}"`)
 }
+
+/**
+ * These URLs are loaded by other people's browsers, not by CI, so two rules apply.
+ *
+ * 4a — no third-party GitHub proxy. Until 2026-11-24 the icon and the README went
+ * through `gh-proxy.com/https://raw.githubusercontent.com/...` because raw times out
+ * from mainland China. That domain is on malware/phishing lists (Cloudflare Radar
+ * verdict: malicious, 10 security violations; Avast blocks it), so users got a
+ * browser warning the moment the catalogue page loaded the icon — and a proxy also
+ * decides which bytes it hands out.
+ *
+ * 4b — the icon stays on the host the template itself is fetched from, so installing
+ * from CA adds no new host dependency. Where that host is blocked the icon breaks
+ * (cosmetic; installation is unaffected) — do not "fix" it with another proxy.
+ */
+const GITHUB_PROXIES = ['gh-proxy.com', 'gh-proxy.org', 'ghproxy.com', 'ghproxy.net', 'ghfast.top', 'gitmirror.com', 'kkgithub.com']
+const ICON_HOSTS = ['raw.githubusercontent.com']
+const hostOf = (value) => ((/^https?:\/\/([^/:?#]+)/i.exec(value) ?? [])[1] ?? '').toLowerCase()
+
+for (const field of linkTags) {
+  const host = hostOf(tag(field))
+  const proxy = GITHUB_PROXIES.find((candidate) => host === candidate || host.endsWith(`.${candidate}`))
+  if (proxy !== undefined) {
+    errors.push(
+      `<${field}> routes through the third-party GitHub proxy ${proxy}; that domain is flagged by browsers and security suites — serve the file from ${ICON_HOSTS.join(' or ')} instead`,
+    )
+  }
+}
+const iconHost = hostOf(tag('Icon'))
+if (iconHost !== '' && !ICON_HOSTS.includes(iconHost)) {
+  errors.push(`<Icon> must be served by ${ICON_HOSTS.join(' or ')}, got "${iconHost}" (a CA user's browser loads it; a proxy in front of it gets blocked and can rewrite the bytes)`)
+}
+const profileIconHost = hostOf(profileIcon)
+if (profileIconHost !== '' && !ICON_HOSTS.includes(profileIconHost)) {
+  errors.push(`ca_profile.xml <Icon> must be served by ${ICON_HOSTS.join(' or ')}, got "${profileIconHost}"`)
+}
+
 const support = tag('Support')
 if (!support.startsWith('https://')) errors.push(`<Support> must be an https URL, got "${support}"`)
 else if (!support.includes('forums.unraid.net')) warnings.push(`<Support> points at ${support}; Community Applications expects an Unraid forum support thread for containers you maintain yourself`)

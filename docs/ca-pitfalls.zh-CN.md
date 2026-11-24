@@ -30,6 +30,7 @@
 | B3 | **CA 中心 feed 会停摆**：2026-09-13→09-15 中心 feed 未重建，维护者改了模板在 CA 里看不到（不是你的错） | 论坛 | ⚠️ 若提交后长时间不出现，先查 CA 状态面板的 "Last Change To Application Feed"，别急着反复改模板 |
 | B4 | **审核是人工的，且有等待**：Claude Code 插件"sent in the application last night"次日才出现；OpenClaw 长时间"still waiting on approval" | 论坛 | ⚠️ 预留数天；这期间不要反复提交 |
 | B5 | **被标记废弃 = 用户失去安全更新**：Paperclip 模板因停止维护被 deprecated，作者明说"you won't receive updates, including security fixes" | 论坛 | ✅ 我们的跟版流水线每天检查上游并自动构建推送；维护成本被压到"上游发版即自动" |
+| B6 | **模板里的每个 URL 都在别人的浏览器里执行**：图标与 README 是由**用户**的机器去取的，中间加一层第三方代理既把每个用户的 IP 暴露给那家，也可能返回被改过的字节。本仓库 2026-10-15 → 2026-11-24 为了绕开 `raw.githubusercontent.com` 的封锁，把两者都指向了 `gh-proxy.com`；结果用户反馈"打开 Apps 页面加载图标时浏览器直接报毒"，该域名也被判为恶意（Cloudflare Radar：malicious、10 项安全违规；Gridinsoft 28/100；Avast 拦截） | 用户反馈 + 厂商判定，2026-11-24 | ✅ `<Icon>` / `<ReadMe>` / `ca_profile.xml` 的 `<Icon>` 直接指向 `raw.githubusercontent.com`——正是 CA 抓取模板本身用的同一台主机，安装不会新增宿主依赖。⚠️ `scripts/check-template.mjs` 遇到已知 GitHub 代理直接判失败，并强制图标落在 `raw.githubusercontent.com`；该域名被封锁的地方只会破图（纯显示问题，不影响安装） |
 
 ## C. 审核者会盯的点（AI 类应用尤其）
 
@@ -63,6 +64,8 @@ node scripts/check-template.mjs /tmp/dsh.xml
 # 3. 镜像匿名可拉 + 多架构
 curl -s "https://ghcr.io/token?scope=repository:meixu6693/dsh:pull&service=ghcr.io" | head -c 80
 
-# 4. 图标必须国内可达（raw 与 jsdelivr 都不行，见 docs/ca-submission.md）
-curl -sI "https://gh-proxy.com/https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png" | head -1
+# 4. 用户拿到的字节必须就是仓库里提交的那份。raw.githubusercontent.com 在中国大陆超时，
+#    请从能访问的网络执行；模板本身已不再经过任何第三方代理（见 docs/ca-submission.md「图标宿主」）
+curl -sL "https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png" | sha256sum
+sha256sum templates/img/dsh.png
 ```

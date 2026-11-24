@@ -30,6 +30,7 @@ Every entry also states how this repository handles it: ✅ already avoided / �
 | B3 | **The CA central feed stalls**: from 2026-09-13 to 09-15 the central feed was not rebuilt, so maintainers' template changes were not visible in CA (not your fault) | Forum | ⚠️ If it does not show up for a long time after submission, first check "Last Change To Application Feed" on the CA status panel; do not rush to keep changing the template |
 | B4 | **Review is manual and has a queue**: the Claude Code plugin was "sent in the application last night" and only appeared the next day; OpenClaw spent a long time "still waiting on approval" | Forum | ⚠️ Allow several days; do not submit repeatedly during that time |
 | B5 | **Being marked deprecated = users lose security updates**: the Paperclip template was deprecated for no longer being maintained, and the author stated plainly "you won't receive updates, including security fixes" | Forum | ✅ our version-tracking pipeline checks upstream every day and builds and pushes automatically; the maintenance cost is squeezed down to "automatic as soon as upstream releases" |
+| B6 | **Every URL in the template runs in other people's browsers**: the icon and the README are fetched from the *user's* machine, so a third-party proxy in front of them leaks every user's IP to that host and can return different bytes. This repository sent both through `gh-proxy.com` (2026-10-15 → 2026-11-24) to get past the block on `raw.githubusercontent.com`; a user reported their browser raising a malware warning the moment Apps loaded the icon, and the domain is classified malicious (Cloudflare Radar: "malicious", 10 security violations; Gridinsoft 28/100; Avast blocks it) | User report + vendor classifications, 2026-11-24 | ✅ `<Icon>` / `<ReadMe>` / `ca_profile.xml`'s `<Icon>` point straight at `raw.githubusercontent.com` — the same host CA already fetches the template from, so an install adds no new host. ⚠️ `scripts/check-template.mjs` fails the build on known GitHub proxies and requires the icon to live on `raw.githubusercontent.com`; where raw is blocked the icon breaks instead (cosmetic, installation is unaffected) |
 
 ## C. Points reviewers watch (especially for AI-type applications)
 
@@ -63,6 +64,9 @@ node scripts/check-template.mjs /tmp/dsh.xml
 # 3. Image anonymously pullable + multi-architecture
 curl -s "https://ghcr.io/token?scope=repository:meixu6693/dsh:pull&service=ghcr.io" | head -c 80
 
-# 4. The icon must be reachable from China (raw and jsdelivr both fail, see docs/ca-submission.md)
-curl -sI "https://gh-proxy.com/https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png" | head -1
+# 4. The bytes users get are the committed bytes. raw.githubusercontent.com times out from
+#    mainland China, so run this from a network that reaches it — the template itself no
+#    longer goes through any third-party proxy (see docs/ca-submission.md, "Icon hosting")
+curl -sL "https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png" | sha256sum
+sha256sum templates/img/dsh.png
 ```

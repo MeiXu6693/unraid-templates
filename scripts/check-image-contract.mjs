@@ -33,8 +33,8 @@ const xml = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
 const IMAGE_REPO = process.env.IMAGE_REPO ?? 'MeiXu6693/dsh-docker'
 // Overridable so a fork can point at its own image repository, and so this check can
 // be exercised from a network that cannot reach raw.githubusercontent.com directly
-// (the Chinese networks this project is developed on route it through gh-proxy.com:
-// IMAGE_RAW_BASE=https://gh-proxy.com/https://raw.githubusercontent.com).
+// (use a mirror you control; user-facing template URLs must never go through a
+// third-party GitHub proxy — see docs/ca-submission.md, "Icon hosting").
 const RAW_BASE = process.env.IMAGE_RAW_BASE ?? 'https://raw.githubusercontent.com'
 const ENTRYPOINT_URL = `${RAW_BASE}/${IMAGE_REPO}/main/docker/entrypoint.sh`
 const COMPOSE_URL = `${RAW_BASE}/${IMAGE_REPO}/main/compose.yaml`

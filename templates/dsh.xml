@@ -17,8 +17,8 @@
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/dsh.xml</TemplateURL>
-  <ReadMe>https://gh-proxy.com/https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/README.md</ReadMe>
-  <Icon>https://gh-proxy.com/https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png</Icon>
+  <ReadMe>https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/README.md</ReadMe>
+  <Icon>https://raw.githubusercontent.com/MeiXu6693/unraid-templates/main/templates/img/dsh.png</Icon>
   <ExtraParams>--security-opt seccomp=unconfined --security-opt systempaths=unconfined --restart=unless-stopped</ExtraParams>
   <PostArgs/>
   <CPUset/>

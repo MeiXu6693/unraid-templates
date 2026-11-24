@@ -74,7 +74,7 @@ CA 与模板指南都要求：**你自己维护的容器必须有 Unraid 论坛�
 |---|---|---|
 | `<Repository>` | `ghcr.io/<owner>/dsh:latest` | 确认 owner 与仓库一致 |
 | `<Registry>` | 对应 GitHub 包页面 | 确认可访问 |
-| `<Icon>` | 经 `gh-proxy.com` 指向仓库里的 `templates/img/dsh.png` | 见下方「图标宿主」 |
+| `<Icon>` | `https://raw.githubusercontent.com/…/templates/img/dsh.png`（不经代理） | 见下方「图标宿主」 |
 | `<Category>` | `Tools:` | 按 CA 分类树调整 |
 | `<Overview>` / `<Description>` | 中英双语 | ⚠️ 会被钉在用户安装那一刻，别写过期信息（见 ca-pitfalls.md B2） |
 | `<ExtraParams>` | 两个 `--security-opt` | **不要删**，删了 bash 工具就废 |
@@ -82,7 +82,7 @@ CA 与模板指南都要求：**你自己维护的容器必须有 Unraid 论坛�
 | 卷 | `/data`、`/workspace` → `appdata/dsh/...` | 首次启动会把属主交给 `PUID:PGID`（Unraid 默认 `99:100`，compose 用 `1000:1000`） |
 | `<Support>` | [论坛支持帖](https://forums.unraid.net/topic/200908-support-dsh-deepseek-harness-ai-coding-agent-in-your-browser/) | ✅ 已替换（2026-10-15 发布在 Community → Docker Containers） |
 | `<TemplateURL>` | 仓库 `main` 的 raw 模板地址 | 官方标为 recommended（identity and review 用） |
-| `<ReadMe>` | 经代理指向仓库 README | starter 里带这个字段，Unraid 详情页会展示 |
+| `<ReadMe>` | 直接指向 `raw.githubusercontent.com` 上的仓库 README | starter 里带这个字段，Unraid 详情页会展示 |
 | `<Requires>` | 保留模板的 Extra Parameters | 官方字段：系统要求文本，正好用来提醒沙箱前提 |
 | `<Changes>` | 指向 Releases 页 | 官方字段：变更日志文本 |
 | 根目录 `icon.svg` | 矢量版应用图标 | 官方布局要求；`ca_profile.xml` 的 `<Icon>` 指向它 |
@@ -98,9 +98,30 @@ CA 与模板指南都要求：**你自己维护的容器必须有 Unraid 论坛�
 
 **上游发版不需要本仓库做任何事**，这正是拆分的目的。
 
-## 图标宿主：为什么不用 raw 链接
+## 图标宿主：只用第一方 URL
 
-实测（中国大陆家宽出口）：
+图标和 README 是由**每个**打开条目的用户的浏览器去取的，所以两者都不能经过第三方。
+条目上线后，CA 每次重建 feed 都会重新解析 `templates/dsh.xml` 并把这两个 URL 抄进目录，
+因此一个坏 URL 几小时内就会对所有人可见。
+
+**历史，2026-10-15 → 2026-11-24。** 这两个字段当时都写成
+`https://gh-proxy.com/https://raw.githubusercontent.com/...`。动机是真实的：中国大陆家宽
+实测 raw 与 jsDelivr 都超时，而代理约 0.2 s 返回。但这笔交易仍然是错的，2026-11-24 有用户
+反馈——*"the moment i opened the community apps page in unraid my browser went off because
+of the icon url"*：
+
+- 该域名在当前各扫描口中的判定就是恶意：Cloudflare Radar 判 "malicious" 并列出 10 项安全
+  违规，Gridinsoft 28/100、命中多条黑名单，Avast 直接拦截（Zotero 论坛里有插件轮询它时同样
+  的告警）；
+- 代理挡在字节前面，等于由它决定每个用户的浏览器收到什么。
+
+**现在。** `<Icon>`、`<ReadMe>` 与 `ca_profile.xml` 的 `<Icon>` 直接指向
+`raw.githubusercontent.com`——正是 CA 抓取 `<TemplateURL>` 用的同一台主机，安装不新增宿主
+依赖，字节来自本仓库。该域名被封锁的地方（中国大陆）只会破图、README 链接打不开：纯显示
+问题，安装与升级不受影响。`scripts/check-template.mjs` 现在遇到已知 GitHub 代理直接判失败，
+并强制图标落在 `raw.githubusercontent.com`。
+
+### 当初选代理时的实测（2026-10-15，中国大陆家宽出口）
 
 | URL 形态 | 结果 |
 |---|---|
@@ -108,7 +129,8 @@ CA 与模板指南都要求：**你自己维护的容器必须有 Unraid 论坛�
 | `cdn.jsdelivr.net/gh/...` | **超时** |
 | `github.com/<owner>/<repo>/raw/...` | 302 跳到 raw（浏览器随后同样超时） |
 | `ghproxy.net/https://raw.githubusercontent.com/...` | 200，约 1.0–1.9 s |
-| **`gh-proxy.com/https://raw.githubusercontent.com/...`** | **200，约 0.2 s** |
+| `gh-proxy.com/https://raw.githubusercontent.com/...` | **200，约 0.2 s**——就是它必须被换掉 |
 | 自己的域名 | 200 |
 
-代理返回的字节用 sha256 与经 API 直取的正本比对过（一致），不是"能打开就行"。若哪天代理失效：把 `<Icon>` 换成自己的域名托管或另一个代理即可，**图标破图不影响安装**。
+可达性不再是判据：破图不花任何代价，被拦截的图要花用户的信任，还要让页面被浏览器挡住。
+校验的是内容而不是可达性——命令见 [ca-pitfalls.md](ca-pitfalls.zh-CN.md)。
